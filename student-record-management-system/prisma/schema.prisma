@@ -1,0 +1,121 @@
+// Prisma schema for Student Record Management API
+// CodSoft Internship Task 1
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CourseStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum EnrollmentStatus {
+  ENROLLED
+  COMPLETED
+  WITHDRAWN
+}
+
+enum UserRole {
+  ADMIN
+  STAFF
+}
+
+model Student {
+  id          String        @id @default(uuid())
+  studentCode String        @unique
+  firstName   String
+  lastName    String
+  email       String        @unique
+  phone       String?
+  dateOfBirth DateTime?
+  gender      String?
+  address     String?
+  status      StudentStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  enrollments Enrollment[]
+
+  @@map("students")
+  @@index([status])
+  @@index([email])
+  @@index([studentCode])
+  @@index([lastName, firstName])
+}
+
+model Course {
+  id          String       @id @default(uuid())
+  courseCode  String       @unique
+  title       String
+  description String?
+  department  String?
+  credits     Int
+  instructor  String?
+  status      CourseStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  enrollments Enrollment[]
+
+  @@map("courses")
+  @@index([status])
+  @@index([department])
+  @@index([courseCode])
+}
+
+model Enrollment {
+  id             String           @id @default(uuid())
+  studentId      String
+  courseId       String
+  enrollmentDate DateTime         @default(now())
+  status         EnrollmentStatus @default(ENROLLED)
+  grade          Float?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  course  Course  @relation(fields: [courseId], references: [id], onDelete: Restrict)
+
+  @@unique([studentId, courseId], name: "unique_student_course_enrollment")
+  @@map("enrollments")
+  @@index([studentId])
+  @@index([courseId])
+  @@index([status])
+  @@index([enrollmentDate])
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(STAFF)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("users")
+  @@index([email])
+  @@index([role])
+}
+
+model RevokedToken {
+  id        String   @id @default(uuid())
+  tokenId   String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("revoked_tokens")
+  @@index([tokenId])
+  @@index([expiresAt])
+}
