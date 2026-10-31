@@ -1,0 +1,667 @@
+openapi: 3.0.3
+info:
+  title: Student Record Management REST API
+  description: |
+    Complete backend REST API for managing student records, course offerings, and academic enrollments.
+    Built for CodSoft Backend Development Internship Task 1 using Node.js, Express.js, PostgreSQL, and Prisma ORM.
+  version: 1.0.0
+  contact:
+    name: CodSoft Intern
+    email: admin@example.com
+
+servers:
+  - url: http://localhost:5001/api/v1
+    description: Local Development Server
+
+paths:
+  /health:
+    get:
+      summary: Service Health Check
+      description: Returns API operational status, uptime, and database connectivity.
+      tags:
+        - System
+      responses:
+        '200':
+          description: API is healthy and connected to database.
+        '503':
+          description: Database connection unavailable (degraded state).
+
+  /auth/register:
+    post:
+      summary: Register Staff Account
+      description: Public registration endpoint. Always assigns the STAFF role to prevent unauthorized administrative escalation.
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Account created successfully with JWT token.
+        '400':
+          description: Validation error or invalid request payload.
+        '409':
+          description: Email address already registered.
+
+  /auth/login:
+    post:
+      summary: User Authentication
+      description: Authenticates admin or staff credentials and returns a signed JWT token.
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful.
+        '401':
+          description: Invalid email or password credentials.
+
+  /auth/me:
+    get:
+      summary: Get Current Profile
+      description: Retrieves the profile of the currently authenticated user.
+      tags:
+        - Authentication
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profile retrieved successfully.
+        '401':
+          description: Missing, invalid, expired, or revoked token.
+
+  /auth/logout:
+    post:
+      summary: Revoke Token / Logout
+      description: Stores the JWT identifier (JTI) into the revoked token table so it cannot be reused.
+      tags:
+        - Authentication
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Token revoked successfully.
+        '401':
+          description: Unauthorized.
+
+  /students:
+    get:
+      summary: List Students
+      description: Retrieve paginated list of students with search, status filtering, and sorting.
+      tags:
+        - Students
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Case-insensitive search on studentCode, firstName, lastName, email.
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [ACTIVE, INACTIVE]
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [studentCode, firstName, lastName, email, createdAt, status]
+            default: createdAt
+        - in: query
+          name: order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Students retrieved successfully.
+    post:
+      summary: Create Student
+      description: Create a new student record with unique student code and email.
+      tags:
+        - Students
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStudentRequest'
+      responses:
+        '201':
+          description: Student created successfully.
+        '400':
+          description: Validation error.
+        '409':
+          description: Student code or email already exists.
+
+  /students/{id}:
+    get:
+      summary: Get Student by ID
+      tags:
+        - Students
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Student retrieved successfully.
+        '404':
+          description: Student not found.
+    patch:
+      summary: Update Student
+      tags:
+        - Students
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStudentRequest'
+      responses:
+        '200':
+          description: Student updated successfully.
+        '404':
+          description: Student not found.
+        '409':
+          description: Student code or email conflicts with another student.
+    delete:
+      summary: Delete Student (Admin Only)
+      description: Permanently deletes student record. Fails with 409 Conflict if dependent enrollment records exist.
+      tags:
+        - Students
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Student deleted successfully.
+        '403':
+          description: Forbidden (Admin role required).
+        '404':
+          description: Student not found.
+        '409':
+          description: Conflict (Dependent enrollments exist).
+
+  /students/{id}/enrollments:
+    get:
+      summary: Get Student Enrollment History
+      tags:
+        - Students
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Student enrollments retrieved successfully.
+
+  /courses:
+    get:
+      summary: List Courses
+      tags:
+        - Courses
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: department
+          schema:
+            type: string
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [ACTIVE, INACTIVE]
+      responses:
+        '200':
+          description: Courses retrieved successfully.
+    post:
+      summary: Create Course (Admin Only)
+      tags:
+        - Courses
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCourseRequest'
+      responses:
+        '201':
+          description: Course created successfully.
+        '403':
+          description: Forbidden (Admin role required).
+        '409':
+          description: Course code already exists.
+
+  /courses/{id}:
+    get:
+      summary: Get Course by ID
+      tags:
+        - Courses
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Course retrieved successfully.
+        '404':
+          description: Course not found.
+    patch:
+      summary: Update Course
+      tags:
+        - Courses
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCourseRequest'
+      responses:
+        '200':
+          description: Course updated successfully.
+        '404':
+          description: Course not found.
+    delete:
+      summary: Delete Course (Admin Only)
+      description: Fails with 409 Conflict if historical or active enrollments reference this course.
+      tags:
+        - Courses
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Course deleted successfully.
+        '409':
+          description: Conflict (Dependent enrollments exist).
+
+  /courses/{id}/students:
+    get:
+      summary: Get Students Enrolled in Course
+      tags:
+        - Courses
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Students retrieved successfully.
+
+  /enrollments:
+    get:
+      summary: List Enrollments
+      tags:
+        - Enrollments
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: studentId
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: courseId
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [ENROLLED, COMPLETED, WITHDRAWN]
+      responses:
+        '200':
+          description: Enrollments retrieved successfully.
+    post:
+      summary: Create Enrollment
+      description: Enrolls an active student in an active course. Re-activates previously withdrawn enrollment if applicable.
+      tags:
+        - Enrollments
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEnrollmentRequest'
+      responses:
+        '201':
+          description: Enrollment created or reactivated successfully.
+        '400':
+          description: Inactive student or inactive course.
+        '404':
+          description: Student or course not found.
+        '409':
+          description: Duplicate active enrollment.
+
+  /enrollments/{id}:
+    get:
+      summary: Get Enrollment by ID
+      tags:
+        - Enrollments
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Enrollment retrieved.
+        '404':
+          description: Enrollment not found.
+    patch:
+      summary: Update Enrollment Status or Grade
+      tags:
+        - Enrollments
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEnrollmentRequest'
+      responses:
+        '200':
+          description: Enrollment updated successfully.
+    delete:
+      summary: Delete Enrollment (Admin Only)
+      tags:
+        - Enrollments
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Enrollment deleted.
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - name
+        - email
+        - password
+      properties:
+        name:
+          type: string
+          example: Jane Doe
+        email:
+          type: string
+          format: email
+          example: jane.doe@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: SecurePass123!
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: admin@example.com
+        password:
+          type: string
+          format: password
+          example: Admin@SecurePassword123!
+
+    CreateStudentRequest:
+      type: object
+      required:
+        - studentCode
+        - firstName
+        - lastName
+        - email
+      properties:
+        studentCode:
+          type: string
+          example: CS2026-001
+        firstName:
+          type: string
+          example: Avishek
+        lastName:
+          type: string
+          example: Kumar
+        email:
+          type: string
+          format: email
+          example: avishek.kumar@example.com
+        phone:
+          type: string
+          example: "+91-9876543210"
+        dateOfBirth:
+          type: string
+          format: date-time
+          example: "2002-05-15T00:00:00.000Z"
+        gender:
+          type: string
+          example: Male
+        address:
+          type: string
+          example: "Sector 62, Noida, UP, India"
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+          default: ACTIVE
+
+    UpdateStudentRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+
+    CreateCourseRequest:
+      type: object
+      required:
+        - courseCode
+        - title
+        - credits
+      properties:
+        courseCode:
+          type: string
+          example: CS301
+        title:
+          type: string
+          example: Database Management Systems
+        description:
+          type: string
+          example: Relational databases, SQL queries, normalization, transactions, and indexing.
+        department:
+          type: string
+          example: Computer Science
+        credits:
+          type: integer
+          minimum: 1
+          maximum: 10
+          example: 4
+        instructor:
+          type: string
+          example: Dr. Alan Turing
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+          default: ACTIVE
+
+    UpdateCourseRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        department:
+          type: string
+        credits:
+          type: integer
+        instructor:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+
+    CreateEnrollmentRequest:
+      type: object
+      required:
+        - studentId
+        - courseId
+      properties:
+        studentId:
+          type: string
+          format: uuid
+        courseId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [ENROLLED, COMPLETED, WITHDRAWN]
+          default: ENROLLED
+        grade:
+          type: number
+          minimum: 0
+          maximum: 100
+          example: 88.5
+
+    UpdateEnrollmentRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ENROLLED, COMPLETED, WITHDRAWN]
+        grade:
+          type: number
+          minimum: 0
+          maximum: 100
