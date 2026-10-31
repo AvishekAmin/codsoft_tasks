@@ -1,0 +1,522 @@
+{
+  "info": {
+    "_postman_id": "a9e6b3c2-d4f1-4c7b-9f2d-8b0e7a1b2c3d",
+    "name": "Online Quiz System Backend REST API - CodSoft Task 5",
+    "description": "Comprehensive Postman Collection with automated token propagation, test scripts, and complete endpoint coverage for the CodSoft Online Quiz System Backend API.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "participantToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "quizId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "questionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "attemptId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. System Health",
+      "item": [
+        {
+          "name": "Check Health Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Authentication",
+      "item": [
+        {
+          "name": "Register Participant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.token) {",
+                  "    pm.collectionVariables.set('participantToken', res.data.token);",
+                  "    console.log('Participant token saved to collection variable.');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sarah Connor\",\n  \"email\": \"sarah@example.com\",\n  \"password\": \"ParticipantPass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login Administrator",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.token) {",
+                  "    pm.collectionVariables.set('adminToken', res.data.token);",
+                  "    console.log('Admin token saved to collection variable.');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@codsoft.quiz\",\n  \"password\": \"AdminSecurePassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login Participant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.token) {",
+                  "    pm.collectionVariables.set('participantToken', res.data.token);",
+                  "    console.log('Participant token updated.');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"sarah@example.com\",\n  \"password\": \"ParticipantPass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Authenticated Profile (Me)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Logout (Revoke Token)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Quiz Management",
+      "item": [
+        {
+          "name": "Create Draft Quiz [Admin]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.quiz && res.data.quiz._id) {",
+                  "    pm.collectionVariables.set('quizId', res.data.quiz._id);",
+                  "    console.log('Quiz ID set to ' + res.data.quiz._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Full-Stack Web Engineering Quiz\",\n  \"description\": \"Comprehensive assessment of modern web protocols, Node.js runtime, and database optimization.\",\n  \"durationMinutes\": 15,\n  \"marksPerQuestion\": 4,\n  \"negativeMarks\": 1,\n  \"passPercentage\": 50,\n  \"randomizeQuestions\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/quizzes",
+              "host": ["{{baseUrl}}"],
+              "path": ["quizzes"]
+            }
+          }
+        },
+        {
+          "name": "List Quizzes (Paginated & Filtered)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/quizzes?page=1&limit=10&status=published",
+              "host": ["{{baseUrl}}"],
+              "path": ["quizzes"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "status", "value": "published" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Quiz Details by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/quizzes/{{quizId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["quizzes", "{{quizId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Quiz Settings [Admin]",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Advanced Full-Stack Engineering Quiz (Updated)\",\n  \"durationMinutes\": 20\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/quizzes/{{quizId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["quizzes", "{{quizId}}"]
+            }
+          }
+        },
+        {
+          "name": "Publish Quiz [Admin]",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/quizzes/{{quizId}}/publish",
+              "host": ["{{baseUrl}}"],
+              "path": ["quizzes", "{{quizId}}", "publish"]
+            }
+          }
+        },
+        {
+          "name": "Delete Draft Quiz [Admin]",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/quizzes/{{quizId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["quizzes", "{{quizId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Question Management [Admin]",
+      "item": [
+        {
+          "name": "Add Question to Quiz",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.question && res.data.question._id) {",
+                  "    pm.collectionVariables.set('questionId', res.data.question._id);",
+                  "    console.log('Question ID set to ' + res.data.question._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"What HTTP status code is returned for a successfully created resource?\",\n  \"options\": [\n    { \"text\": \"200 OK\", \"isCorrect\": false },\n    { \"text\": \"201 Created\", \"isCorrect\": true },\n    { \"text\": \"204 No Content\", \"isCorrect\": false },\n    { \"text\": \"400 Bad Request\", \"isCorrect\": false }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/quizzes/{{quizId}}/questions",
+              "host": ["{{baseUrl}}"],
+              "path": ["quizzes", "{{quizId}}", "questions"]
+            }
+          }
+        },
+        {
+          "name": "List Questions with Answer Keys [Admin]",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/quizzes/{{quizId}}/questions",
+              "host": ["{{baseUrl}}"],
+              "path": ["quizzes", "{{quizId}}", "questions"]
+            }
+          }
+        },
+        {
+          "name": "Update Question [Admin]",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"What standard HTTP status code signifies that a new resource was created successfully?\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions/{{questionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["questions", "{{questionId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Question [Admin]",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/questions/{{questionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["questions", "{{questionId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Attempts & Answer Submission",
+      "item": [
+        {
+          "name": "Start Quiz Attempt [Participant]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.attemptId) {",
+                  "    pm.collectionVariables.set('attemptId', res.data.attemptId);",
+                  "    console.log('Attempt ID set to ' + res.data.attemptId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/quizzes/{{quizId}}/attempts",
+              "host": ["{{baseUrl}}"],
+              "path": ["quizzes", "{{quizId}}", "attempts"]
+            }
+          }
+        },
+        {
+          "name": "Get Attempt Questions [Answers Hidden]",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/attempts/{{attemptId}}/questions",
+              "host": ["{{baseUrl}}"],
+              "path": ["attempts", "{{attemptId}}", "questions"]
+            }
+          }
+        },
+        {
+          "name": "Save Answer during Attempt",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{participantToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"questionId\": \"{{questionId}}\",\n  \"selectedOptionId\": \"replace_with_valid_option_id\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/attempts/{{attemptId}}/answers",
+              "host": ["{{baseUrl}}"],
+              "path": ["attempts", "{{attemptId}}", "answers"]
+            }
+          }
+        },
+        {
+          "name": "Submit & Finalize Attempt",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/attempts/{{attemptId}}/submit",
+              "host": ["{{baseUrl}}"],
+              "path": ["attempts", "{{attemptId}}", "submit"]
+            }
+          }
+        },
+        {
+          "name": "Get Finalized Attempt Result",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/attempts/{{attemptId}}/result",
+              "host": ["{{baseUrl}}"],
+              "path": ["attempts", "{{attemptId}}", "result"]
+            }
+          }
+        },
+        {
+          "name": "Get My Previous Attempts History",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/users/me/attempts?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me", "attempts"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Leaderboards & Analytics",
+      "item": [
+        {
+          "name": "Get Quiz Leaderboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/quizzes/{{quizId}}/leaderboard?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["quizzes", "{{quizId}}", "leaderboard"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Quiz Aggregated Statistics [Admin]",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/quizzes/{{quizId}}/statistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["quizzes", "{{quizId}}", "statistics"]
+            }
+          }
+        },
+        {
+          "name": "Get Personal Performance Statistics",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/users/me/statistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me", "statistics"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

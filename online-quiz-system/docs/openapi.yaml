@@ -1,0 +1,709 @@
+openapi: 3.0.3
+info:
+  title: Online Quiz System Backend API
+  version: 1.0.0
+  description: |
+    Production-ready REST API for Online Quiz System (CodSoft Internship Task 5).
+    Supports administrative quiz and question management, participant attempts, server-side scoring,
+    timer enforcement, randomization, certificate eligibility, leaderboards, and aggregate analytics.
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Local Development Server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Enter your JWT Bearer token obtained from /auth/login or /auth/register
+
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Operation completed successfully
+        data:
+          type: object
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Validation failed
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 64f1a2b3c4d5e6f7a8b9c0d1
+        name:
+          type: string
+          example: Jane Doe
+        email:
+          type: string
+          example: jane.doe@example.com
+        role:
+          type: string
+          enum: [admin, participant]
+          example: participant
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Quiz:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 64f1a2b3c4d5e6f7a8b9c0d2
+        title:
+          type: string
+          example: JavaScript Core Concepts
+        description:
+          type: string
+          example: Test your understanding of closures, promises, and the event loop.
+        createdBy:
+          type: string
+          example: 64f1a2b3c4d5e6f7a8b9c0d1
+        status:
+          type: string
+          enum: [draft, published]
+          example: published
+        durationMinutes:
+          type: integer
+          example: 15
+        marksPerQuestion:
+          type: number
+          example: 2
+        negativeMarks:
+          type: number
+          example: 0.5
+        passPercentage:
+          type: number
+          example: 60
+        randomizeQuestions:
+          type: boolean
+          example: true
+        questionCount:
+          type: integer
+          example: 10
+
+    QuestionAdmin:
+      type: object
+      properties:
+        _id:
+          type: string
+        quizId:
+          type: string
+        text:
+          type: string
+          example: What is the output of typeof null in JavaScript?
+        options:
+          type: array
+          items:
+            type: object
+            properties:
+              _id:
+                type: string
+              text:
+                type: string
+              isCorrect:
+                type: boolean
+
+    QuestionParticipant:
+      type: object
+      properties:
+        _id:
+          type: string
+        text:
+          type: string
+        options:
+          type: array
+          items:
+            type: object
+            properties:
+              _id:
+                type: string
+              text:
+                type: string
+
+    QuizResult:
+      type: object
+      properties:
+        _id:
+          type: string
+        attemptId:
+          type: string
+        userId:
+          type: string
+        quizId:
+          type: string
+        correctCount:
+          type: integer
+          example: 8
+        wrongCount:
+          type: integer
+          example: 2
+        unansweredCount:
+          type: integer
+          example: 0
+        score:
+          type: number
+          example: 15
+        totalMarks:
+          type: number
+          example: 20
+        percentage:
+          type: number
+          example: 75
+        passed:
+          type: boolean
+          example: true
+        certificateEligible:
+          type: boolean
+          example: true
+        timeTakenSeconds:
+          type: integer
+          example: 480
+        createdAt:
+          type: string
+          format: date-time
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      tags: [System Health]
+      responses:
+        200:
+          description: Service operational and database connected
+        503:
+          description: Service degraded
+
+  /auth/register:
+    post:
+      summary: Register a new participant
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                  example: Alex Morgan
+                email:
+                  type: string
+                  example: alex@example.com
+                password:
+                  type: string
+                  minLength: 6
+                  example: Password123!
+      responses:
+        201:
+          description: Registration successful
+        400:
+          description: Validation error
+        409:
+          description: Email already registered
+
+  /auth/login:
+    post:
+      summary: User login (Admin or Participant)
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  example: alex@example.com
+                password:
+                  type: string
+                  example: Password123!
+      responses:
+        200:
+          description: Login successful
+        401:
+          description: Invalid email or password
+
+  /auth/me:
+    get:
+      summary: Get currently authenticated user profile
+      tags: [Authentication]
+      security:
+        - BearerAuth: []
+      responses:
+        200:
+          description: Profile retrieved
+        401:
+          description: Unauthorized
+
+  /auth/logout:
+    post:
+      summary: Logout and revoke JWT Bearer token
+      tags: [Authentication]
+      security:
+        - BearerAuth: []
+      responses:
+        200:
+          description: Token revoked successfully
+
+  /quizzes:
+    post:
+      summary: Create a new draft quiz (Admin only)
+      tags: [Quiz Management]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, durationMinutes, marksPerQuestion]
+              properties:
+                title:
+                  type: string
+                  example: Python Data Structures
+                description:
+                  type: string
+                  example: Assess lists, sets, tuples, and dictionaries.
+                durationMinutes:
+                  type: integer
+                  example: 20
+                marksPerQuestion:
+                  type: number
+                  example: 2
+                negativeMarks:
+                  type: number
+                  example: 0.5
+                passPercentage:
+                  type: number
+                  example: 60
+                randomizeQuestions:
+                  type: boolean
+                  example: true
+      responses:
+        201:
+          description: Draft quiz created
+        403:
+          description: Admin access required
+
+    get:
+      summary: List quizzes with pagination and filters
+      description: Participants receive published quizzes only. Administrators can inspect draft and published quizzes.
+      tags: [Quiz Management]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, published, all]
+      responses:
+        200:
+          description: List of accessible quizzes
+
+  /quizzes/{quizId}:
+    get:
+      summary: Get quiz details by ID
+      tags: [Quiz Management]
+      parameters:
+        - name: quizId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Quiz details
+        404:
+          description: Quiz not found
+
+    patch:
+      summary: Update quiz settings (Admin only)
+      tags: [Quiz Management]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: quizId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                durationMinutes:
+                  type: integer
+                marksPerQuestion:
+                  type: number
+                negativeMarks:
+                  type: number
+                passPercentage:
+                  type: number
+                randomizeQuestions:
+                  type: boolean
+      responses:
+        200:
+          description: Quiz updated
+        409:
+          description: Conflict with existing attempts
+
+    delete:
+      summary: Delete a draft quiz (Admin only)
+      tags: [Quiz Management]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: quizId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Quiz deleted
+        409:
+          description: Cannot delete quiz with existing attempts
+
+  /quizzes/{quizId}/publish:
+    patch:
+      summary: Publish a quiz (Admin only, requires >= 1 question)
+      tags: [Quiz Management]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: quizId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Quiz published
+        400:
+          description: Cannot publish quiz with 0 questions
+
+  /quizzes/{quizId}/questions:
+    post:
+      summary: Add a question to a quiz (Admin only)
+      tags: [Question Management]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: quizId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text, options]
+              properties:
+                text:
+                  type: string
+                  example: Which data type is immutable in Python?
+                options:
+                  type: array
+                  items:
+                    type: object
+                    required: [text, isCorrect]
+                    properties:
+                      text:
+                        type: string
+                      isCorrect:
+                        type: boolean
+                  example:
+                    - text: List
+                      isCorrect: false
+                    - text: Tuple
+                      isCorrect: true
+                    - text: Set
+                      isCorrect: false
+                    - text: Dictionary
+                      isCorrect: false
+      responses:
+        201:
+          description: Question added
+        400:
+          description: Must contain >=2 options and exactly 1 correct option
+
+    get:
+      summary: List all questions of a quiz with answer keys (Admin only)
+      tags: [Question Management]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: quizId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Questions with answer keys
+
+  /questions/{questionId}:
+    patch:
+      summary: Update question text or options (Admin only)
+      tags: [Question Management]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Question updated
+        409:
+          description: Cannot modify question when attempts exist
+
+    delete:
+      summary: Delete question (Admin only)
+      tags: [Question Management]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Question deleted
+
+  /quizzes/{quizId}/attempts:
+    post:
+      summary: Start a quiz attempt (Participant only)
+      tags: [Quiz Attempts]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: quizId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        201:
+          description: Attempt started with question order and server start timestamp
+        200:
+          description: Resumed existing active attempt
+
+  /attempts/{attemptId}/questions:
+    get:
+      summary: Retrieve questions for an attempt (Participant only, answers hidden)
+      tags: [Quiz Attempts]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: attemptId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Questions in assigned order without answer keys
+
+  /attempts/{attemptId}/answers:
+    patch:
+      summary: Save answer(s) during active attempt (Participant only)
+      tags: [Quiz Attempts]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: attemptId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                questionId:
+                  type: string
+                selectedOptionId:
+                  type: string
+                answers:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      questionId:
+                        type: string
+                      selectedOptionId:
+                        type: string
+      responses:
+        200:
+          description: Answers saved
+        400:
+          description: Time expired or invalid question/option
+
+  /attempts/{attemptId}/submit:
+    post:
+      summary: Submit and finalize quiz attempt (Participant only)
+      tags: [Quiz Attempts]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: attemptId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Score evaluated and result persisted
+
+  /attempts/{attemptId}/result:
+    get:
+      summary: Retrieve finalized score and result (Participant owner or Admin)
+      tags: [Quiz Attempts]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: attemptId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Finalized result
+
+  /quizzes/{quizId}/leaderboard:
+    get:
+      summary: View public leaderboard for a quiz
+      tags: [Leaderboards & Analytics]
+      parameters:
+        - name: quizId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        200:
+          description: Leaderboard rankings
+
+  /quizzes/{quizId}/statistics:
+    get:
+      summary: View aggregated quiz performance metrics (Admin only)
+      tags: [Leaderboards & Analytics]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: quizId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Quiz statistics (attempts, averages, pass rate)
+
+  /users/me/attempts:
+    get:
+      summary: View user's previous attempts (Participant only)
+      tags: [User Profile]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        200:
+          description: Attempt history
+
+  /users/me/statistics:
+    get:
+      summary: View user's personal performance statistics (Participant only)
+      tags: [User Profile]
+      security:
+        - BearerAuth: []
+      responses:
+        200:
+          description: Aggregate statistics for user
