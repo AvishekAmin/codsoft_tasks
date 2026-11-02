@@ -1,0 +1,71 @@
+// Prisma schema for Contact Management System REST API
+// CodSoft Internship Task 2
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String         @id @default(uuid())
+  name         String
+  email        String         @unique
+  passwordHash String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  contacts      Contact[]
+  revokedTokens RevokedToken[]
+
+  @@map("users")
+  @@index([email])
+}
+
+model Contact {
+  id           String    @id @default(uuid())
+  ownerId      String
+  name         String
+  email        String?
+  phone        String?
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  state        String?
+  postalCode   String?
+  country      String?
+  companyName  String?
+  jobTitle     String?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@map("contacts")
+  @@index([ownerId])
+  @@index([name])
+  @@index([email])
+  @@index([phone])
+  @@index([companyName])
+  @@index([city])
+  @@index([country])
+  @@index([createdAt])
+}
+
+model RevokedToken {
+  id        String   @id @default(uuid())
+  tokenId   String   @unique
+  userId    String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("revoked_tokens")
+  @@index([tokenId])
+  @@index([expiresAt])
+}
