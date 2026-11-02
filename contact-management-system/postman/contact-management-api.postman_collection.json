@@ -1,0 +1,578 @@
+{
+  "info": {
+    "_postman_id": "c0ntact-task2-api-collection-2026",
+    "name": "Contact Management System REST API",
+    "description": "Comprehensive Postman test collection for CodSoft Backend Development Internship Task 2: Contact Management System with PostgreSQL, Prisma, Express.js, and JWT.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5002/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user2Token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "contactId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01. System Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02. Authentication",
+      "item": [
+        {
+          "name": "Register User 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.id) {",
+                  "  pm.collectionVariables.set('user1Id', res.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Avishek Mukherjee\",\n  \"email\": \"avishek@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login User 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.token) {",
+                  "  pm.collectionVariables.set('authToken', res.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"avishek@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Register User 2 (Isolation Testing)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Priya Roy\",\n  \"email\": \"priya@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login User 2 (Isolation Testing)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.token) {",
+                  "  pm.collectionVariables.set('user2Token', res.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"priya@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Profile (/auth/me)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Logout Token Revocation",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03. Contact CRUD Operations",
+      "item": [
+        {
+          "name": "Create Contact (Email & Phone)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.id) {",
+                  "  pm.collectionVariables.set('contactId', res.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"phone\": \"+1 (555) 123-4567\",\n  \"companyName\": \"TechCorp\",\n  \"jobTitle\": \"Lead Software Engineer\",\n  \"addressLine1\": \"100 Market St\",\n  \"city\": \"San Francisco\",\n  \"state\": \"CA\",\n  \"postalCode\": \"94105\",\n  \"country\": \"USA\",\n  \"notes\": \"Met at Tech Expo 2026\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/contacts",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts"]
+            }
+          }
+        },
+        {
+          "name": "Create Contact (Phone Only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Alice Brown\",\n  \"phone\": \"+1 (555) 333-2211\",\n  \"companyName\": \"TechCorp\",\n  \"jobTitle\": \"QA Specialist\",\n  \"city\": \"Austin\",\n  \"country\": \"USA\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/contacts",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts"]
+            }
+          }
+        },
+        {
+          "name": "Create Contact (Email Only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Carlos Garcia\",\n  \"email\": \"carlos.garcia@global.es\",\n  \"companyName\": \"Global Logistics\",\n  \"jobTitle\": \"Director\",\n  \"city\": \"Madrid\",\n  \"country\": \"Spain\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/contacts",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts"]
+            }
+          }
+        },
+        {
+          "name": "List User Contacts",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/contacts?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Contact by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/contacts/{{contactId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts", "{{contactId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Contact (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jobTitle\": \"VP of Engineering\",\n  \"notes\": \"Promoted to VP of Engineering in Q4 2026\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/contacts/{{contactId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts", "{{contactId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Contact",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/contacts/{{contactId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts", "{{contactId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04. Search, Filtering, Sorting & Pagination",
+      "item": [
+        {
+          "name": "Search Contacts by Name",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/contacts?search=John",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts"],
+              "query": [{ "key": "search", "value": "John" }]
+            }
+          }
+        },
+        {
+          "name": "Search Contacts by Email",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/contacts?search=example.com",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts"],
+              "query": [{ "key": "search", "value": "example.com" }]
+            }
+          }
+        },
+        {
+          "name": "Search Contacts by Phone",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/contacts?search=1234567",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts"],
+              "query": [{ "key": "search", "value": "1234567" }]
+            }
+          }
+        },
+        {
+          "name": "Convenience Search Endpoint (/contacts/search?q=...)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/contacts/search?q=TechCorp",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts", "search"],
+              "query": [{ "key": "q", "value": "TechCorp" }]
+            }
+          }
+        },
+        {
+          "name": "Filter by Company, City, and Country",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/contacts?companyName=TechCorp&city=San Francisco&country=USA",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts"],
+              "query": [
+                { "key": "companyName", "value": "TechCorp" },
+                { "key": "city", "value": "San Francisco" },
+                { "key": "country", "value": "USA" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Sort Contacts Ascending by Name",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/contacts?sort=name&order=asc",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts"],
+              "query": [
+                { "key": "sort", "value": "name" },
+                { "key": "order", "value": "asc" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pagination: Page 1 Limit 2",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/contacts?page=1&limit=2",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "2" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05. Validation & Edge Cases",
+      "item": [
+        {
+          "name": "Reject Missing Contact Name (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"noname@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/contacts",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts"]
+            }
+          }
+        },
+        {
+          "name": "Reject Contact without Email and Phone (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"No Contact Info Person\",\n  \"companyName\": \"Ghost Corp\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/contacts",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts"]
+            }
+          }
+        },
+        {
+          "name": "Reject Duplicate Email for Same User (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Duplicate Email Person\",\n  \"email\": \"john.doe@example.com\",\n  \"phone\": \"+1-555-888-9999\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/contacts",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts"]
+            }
+          }
+        },
+        {
+          "name": "Reject Malformed Contact UUID (400)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/contacts/not-a-valid-uuid",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts", "not-a-valid-uuid"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06. Security & Multi-Tenant Isolation",
+      "item": [
+        {
+          "name": "User 2 Cannot Retrieve User 1's Contact (404)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{user2Token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/contacts/{{contactId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts", "{{contactId}}"]
+            }
+          }
+        },
+        {
+          "name": "User 2 Cannot Update User 1's Contact (404)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{user2Token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hacked Contact Name\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/contacts/{{contactId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts", "{{contactId}}"]
+            }
+          }
+        },
+        {
+          "name": "User 2 Cannot Delete User 1's Contact (404)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{user2Token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/contacts/{{contactId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts", "{{contactId}}"]
+            }
+          }
+        },
+        {
+          "name": "User 2 Can Save Same Email As User 1 (201 Scoped Uniqueness)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{user2Token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe Colleague\",\n  \"email\": \"john.doe@example.com\",\n  \"phone\": \"+1-555-777-6655\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/contacts",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts"]
+            }
+          }
+        },
+        {
+          "name": "Reject Request Without Authorization Token (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/contacts",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

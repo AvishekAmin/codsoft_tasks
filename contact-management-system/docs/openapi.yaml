@@ -1,0 +1,719 @@
+openapi: 3.0.3
+info:
+  title: Contact Management System REST API
+  description: |
+    Complete backend REST API for personal and professional contact management with PostgreSQL and Prisma ORM.
+    Developed for CodSoft Backend Development Internship Task 2.
+    
+    ### Key Features
+    - Secure JWT Bearer authentication with persistent token revocation
+    - User-isolated personal contact storage (no cross-user data leakage)
+    - Contact validation enforcing at least one communication method (email or phone)
+    - Normalized email and phone representation
+    - Scoped duplicate prevention per user via PostgreSQL partial unique indexes
+    - Full-text keyword search across name, email, and phone
+    - Flexible filtering (company, city, country) and stable pagination
+    - Centralized error handling and defensive input validation with Zod
+  version: 1.0.0
+  contact:
+    name: CodSoft Intern
+    email: intern@codsoft.example.com
+
+servers:
+  - url: http://localhost:5002/api/v1
+    description: Local Development Server
+
+tags:
+  - name: Health
+    description: System status and database connectivity monitoring
+  - name: Authentication
+    description: User registration, login, profile retrieval, and logout token revocation
+  - name: Contacts
+    description: Owner-scoped Contact CRUD operations, search, filtering, and pagination
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check endpoint
+      description: Returns real-time application uptime, service name, and database connectivity.
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Contact Management System API is healthy
+                  data:
+                    type: object
+                    properties:
+                      service:
+                        type: string
+                        example: contact-management-system
+                      status:
+                        type: string
+                        example: UP
+                      uptime:
+                        type: number
+                        example: 45.12
+                      timestamp:
+                        type: string
+                        example: '2026-11-01T03:30:00.000Z'
+                      database:
+                        type: string
+                        example: connected
+
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user account
+      description: Creates a user account with hashed password and normalized email.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponseEnvelope'
+        '400':
+          description: Validation failure or malformed payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: User with this email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User authentication
+      description: Authenticates user credentials and returns a 24-hour signed JWT access token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponseEnvelope'
+        '401':
+          description: Invalid email or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+
+  /auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get current authenticated user profile
+      description: Returns identity details of the user associated with the provided Bearer token.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponseEnvelope'
+        '401':
+          description: Missing, invalid, expired, or revoked token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Invalidate current token
+      description: Revokes the active JWT identifier (JTI) in the persistent database blocklist.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Token revoked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          description: Unauthorized
+
+  /contacts:
+    post:
+      tags:
+        - Contacts
+      summary: Create a new contact
+      description: |
+        Creates a contact belonging to the authenticated user.
+        Must provide at least one contact method: email or phone.
+        Normalized email and phone are checked against the authenticated user's existing contacts.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateContactRequest'
+      responses:
+        '201':
+          description: Contact created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactResponseEnvelope'
+        '400':
+          description: Validation error (e.g. neither email nor phone provided, malformed fields)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Duplicate email or phone for this owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags:
+        - Contacts
+      summary: List user contacts
+      description: |
+        Retrieves a paginated list of contacts owned strictly by the authenticated user.
+        Supports search by name, email, and phone, plus filtering by company, city, and country.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number (1-based)
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+            maximum: 100
+          description: Maximum items per page
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Substring match against name, email, or phone
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [name, email, phone, companyName, city, country, createdAt, updatedAt]
+            default: createdAt
+          description: Field to sort by
+        - in: query
+          name: order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Sort direction
+        - in: query
+          name: companyName
+          schema:
+            type: string
+          description: Case-insensitive company filter
+        - in: query
+          name: city
+          schema:
+            type: string
+          description: Case-insensitive city filter
+        - in: query
+          name: country
+          schema:
+            type: string
+          description: Case-insensitive country filter
+      responses:
+        '200':
+          description: Paginated contact list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedContactsResponse'
+        '401':
+          description: Unauthorized
+
+  /contacts/search:
+    get:
+      tags:
+        - Contacts
+      summary: Convenience search endpoint
+      description: Alias endpoint that executes search via query parameter `q`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+          description: Search term across name, email, and phone
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedContactsResponse'
+
+  /contacts/{contactId}:
+    get:
+      tags:
+        - Contacts
+      summary: Retrieve a single contact by ID
+      description: Returns contact details if owned by the authenticated user. Returns 404 if inaccessible or nonexistent.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: contactId
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique contact UUID
+      responses:
+        '200':
+          description: Contact retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactResponseEnvelope'
+        '400':
+          description: Invalid UUID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Contact not found or inaccessible
+
+    patch:
+      tags:
+        - Contacts
+      summary: Partially update a contact
+      description: |
+        Updates approved fields of an owned contact.
+        Ensures the resulting contact still maintains at least one contact method.
+        Rechecks duplicate email/phone constraints.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: contactId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateContactRequest'
+      responses:
+        '200':
+          description: Contact updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactResponseEnvelope'
+        '400':
+          description: Validation error or attempt to remove all contact methods
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Contact not found or inaccessible
+        '409':
+          description: Updated email or phone conflicts with another contact owned by user
+
+    delete:
+      tags:
+        - Contacts
+      summary: Delete a contact
+      description: Permanently deletes a contact owned by the authenticated user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: contactId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Contact deleted successfully. No response body returned.
+        '404':
+          description: Contact not found or inaccessible
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Provide the JWT access token as `Bearer <token>`.
+
+  schemas:
+    UserRegisterRequest:
+      type: object
+      required:
+        - name
+        - email
+        - password
+      properties:
+        name:
+          type: string
+          example: Avishek Mukherjee
+        email:
+          type: string
+          format: email
+          example: avishek@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: Password123!
+
+    UserLoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: avishek@example.com
+        password:
+          type: string
+          format: password
+          example: Password123!
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        name:
+          type: string
+          example: Avishek Mukherjee
+        email:
+          type: string
+          format: email
+          example: avishek@example.com
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Contact:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 987e6543-e21b-12d3-a456-426614174001
+        ownerId:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        name:
+          type: string
+          example: John Doe
+        email:
+          type: string
+          format: email
+          nullable: true
+          example: john.doe@example.com
+        phone:
+          type: string
+          nullable: true
+          example: '+15551234567'
+        addressLine1:
+          type: string
+          nullable: true
+          example: 100 Market St
+        addressLine2:
+          type: string
+          nullable: true
+          example: Suite 400
+        city:
+          type: string
+          nullable: true
+          example: San Francisco
+        state:
+          type: string
+          nullable: true
+          example: CA
+        postalCode:
+          type: string
+          nullable: true
+          example: '94105'
+        country:
+          type: string
+          nullable: true
+          example: USA
+        companyName:
+          type: string
+          nullable: true
+          example: TechCorp
+        jobTitle:
+          type: string
+          nullable: true
+          example: Senior Software Engineer
+        notes:
+          type: string
+          nullable: true
+          example: Met at developer conference
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateContactRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: John Doe
+        email:
+          type: string
+          format: email
+          example: john.doe@example.com
+        phone:
+          type: string
+          example: '+1 (555) 123-4567'
+        addressLine1:
+          type: string
+          example: 100 Market St
+        addressLine2:
+          type: string
+          example: Suite 400
+        city:
+          type: string
+          example: San Francisco
+        state:
+          type: string
+          example: CA
+        postalCode:
+          type: string
+          example: '94105'
+        country:
+          type: string
+          example: USA
+        companyName:
+          type: string
+          example: TechCorp
+        jobTitle:
+          type: string
+          example: Senior Software Engineer
+        notes:
+          type: string
+          example: Key collaborator
+
+    UpdateContactRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Johnathan Doe
+        email:
+          type: string
+          format: email
+          example: jdoe@example.com
+        phone:
+          type: string
+          example: '+15559876543'
+        addressLine1:
+          type: string
+        addressLine2:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        postalCode:
+          type: string
+        country:
+          type: string
+        companyName:
+          type: string
+        jobTitle:
+          type: string
+        notes:
+          type: string
+
+    PaginationMetadata:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        totalItems:
+          type: integer
+          example: 42
+        totalPages:
+          type: integer
+          example: 5
+
+    SuccessEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Operation completed successfully
+
+    UserResponseEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: User registered successfully
+        data:
+          $ref: '#/components/schemas/User'
+
+    LoginResponseEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Login successful
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            user:
+              $ref: '#/components/schemas/User'
+
+    ContactResponseEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Contact created successfully
+        data:
+          $ref: '#/components/schemas/Contact'
+
+    PaginatedContactsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Contacts retrieved successfully
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Contact'
+            pagination:
+              $ref: '#/components/schemas/PaginationMetadata'
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Validation failed
+        errors:
+          type: array
+          nullable: true
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: email
+              message:
+                type: string
+                example: Invalid email address format
